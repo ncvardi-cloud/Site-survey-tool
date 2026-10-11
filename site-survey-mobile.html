@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<!--
+  Site Survey — גרסת מובייל. מבנה נתונים (JSON / localStorage) זהה ל-site-survey.html.
+  קובץ יחיד, עצמאי, עובד אופליין.
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e5aa8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Site Survey — Mobile</title>
+<style>
+  :root{
+    --brand:#1e5aa8; --brand-d:#164481; --accent:#eef4fb; --bg:#eef1f5; --ink:#1f2933; --muted:#6b7280; --line:#dde2e8;
+    --ok:#1e8f4e; --miss:#c0392b; --na:#8a9199; --chk:#b8860b; --none:#c7ccd3;
+    --sa-t:env(safe-area-inset-top,0px); --sa-b:env(safe-area-inset-bottom,0px); --hh:64px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{font-family:system-ui,"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--ink); font-size:16px; line-height:1.5;
+    padding-bottom:calc(70px + var(--sa-b))}
+  button{font-family:inherit; cursor:pointer; color:inherit}
+  input,textarea,select{font-family:inherit; font-size:16px; color:var(--ink); width:100%; border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; background:#fff}
+  textarea{resize:vertical; min-height:70px}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--brand); outline-offset:0; border-color:var(--brand)}
+
+  /* header */
+  header#top{position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:10px; background:var(--brand); color:#fff;
+    padding:calc(8px + var(--sa-t)) 12px 8px; box-shadow:0 2px 10px rgba(0,0,0,.18)}
+  .icon-btn{width:42px; height:42px; flex:none; border-radius:50%; border:none; background:rgba(255,255,255,.16); color:#fff; font-size:1.3rem}
+  .ttl{flex:1; min-width:0}
+  .ttl b{display:block; font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .ttl small{display:block; opacity:.85; font-size:.76rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .ring{--p:0; width:46px; height:46px; flex:none; border-radius:50%; display:grid; place-items:center;
+    background:conic-gradient(#ffcf33 calc(var(--p)*1%), rgba(255,255,255,.25) 0)}
+  .ring span{width:36px; height:36px; border-radius:50%; background:var(--brand); display:grid; place-items:center; font-size:.72rem; font-weight:700}
+
+  main{padding:12px; max-width:680px; margin:0 auto}
+
+  /* bottom nav */
+  nav#bottom{position:fixed; bottom:0; left:0; right:0; z-index:30; display:flex; background:#fff; border-top:1px solid var(--line);
+    padding-bottom:var(--sa-b); box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+  nav#bottom button{flex:1; border:none; background:none; padding:7px 0 6px; font-size:1.3rem; color:var(--muted);
+    display:flex; flex-direction:column; align-items:center; gap:1px; position:relative}
+  nav#bottom button span{font-size:.72rem; font-weight:600}
+  nav#bottom button.on{color:var(--brand)}
+  nav#bottom button.on span{color:var(--brand)}
+  .nbadge{position:absolute; top:3px; left:calc(50% - 24px); background:var(--miss); color:#fff; font-size:.66rem; font-weight:700;
+    min-width:18px; height:18px; border-radius:9px; display:none; align-items:center; justify-content:center; padding:0 4px}
+
+  /* home */
+  .hero{width:100%; display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,#1e5aa8,#2f74cc); color:#fff;
+    border:none; border-radius:18px; padding:16px; text-align:right; box-shadow:0 4px 14px rgba(30,90,168,.3)}
+  .hero-ic{font-size:2rem}
+  .hero b{display:block; font-size:1.1rem}
+  .hero small{display:block; opacity:.9; font-size:.82rem}
+  .hero > div{flex:1; min-width:0}
+  .chev{font-size:1.5rem; opacity:.6; flex:none}
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:12px 0}
+  .stat{border:none; border-radius:14px; padding:10px 4px; background:#fff; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.07);
+    border-top:4px solid var(--none)}
+  .stat b{display:block; font-size:1.35rem; line-height:1.2}
+  .stat small{font-size:.72rem; color:var(--muted); font-weight:600}
+  .stat.ok{border-top-color:var(--ok)} .stat.ok b{color:var(--ok)}
+  .stat.missing{border-top-color:var(--miss)} .stat.missing b{color:var(--miss)}
+  .stat.check{border-top-color:var(--chk)} .stat.check b{color:var(--chk)}
+  .tiles{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .tile{position:relative; background:#fff; border:none; border-radius:16px; padding:14px 12px 12px; text-align:right; min-height:122px;
+    display:flex; flex-direction:column; gap:4px; box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .tile:active,.roomrow:active,.openrow:active,.hero:active{transform:scale(.98)}
+  .tile .ic{font-size:1.8rem; line-height:1.2}
+  .tile .tt{font-weight:700; font-size:.95rem; line-height:1.25}
+  .tile .lt{position:absolute; top:10px; left:12px; font-weight:800; color:var(--brand); opacity:.3; font-size:1.25rem}
+  .tile .cnt{font-size:.76rem; color:var(--muted); margin-top:auto}
+  .tile .cnt .miss{color:var(--miss); font-weight:700}
+  .tile .bar{height:6px; background:#e6eaf0; border-radius:6px; overflow:hidden}
+  .tile .bar i{display:block; height:100%; background:var(--brand)}
+  .tile.done{box-shadow:0 0 0 2px var(--ok) inset, 0 1px 4px rgba(0,0,0,.08)}
+  .tile.done .bar i{background:var(--ok)}
+
+  /* generic blocks */
+  .hint{background:#fff7e0; border:1px solid #f0dc9c; color:#6b5300; border-radius:12px; padding:9px 12px; font-size:.86rem; margin:4px 0 10px}
+  .block{background:#fff; border-radius:14px; padding:12px; margin:12px 0; box-shadow:0 1px 3px rgba(0,0,0,.07); scroll-margin-top:calc(var(--hh) + 60px)}
+  .block > h3{margin:0 0 10px; font-size:1rem; color:var(--brand-d)}
+  .g2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .g3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+  .field{display:flex; flex-direction:column; gap:3px; margin-bottom:8px; min-width:0}
+  .field label{font-size:.8rem; color:var(--muted); font-weight:600}
+  .btn{border:none; border-radius:12px; background:var(--brand); color:#fff; font-weight:700; font-size:.95rem; padding:12px 14px; min-height:48px}
+  .btn.ghost{background:#fff; color:var(--brand-d); border:1px solid var(--brand)}
+  .btn.danger{background:#fbeaea; color:var(--miss)}
+  .btn.wide{width:100%}
+  .stack{display:flex; flex-direction:column; gap:8px}
+  .addbtn{width:100%; min-height:46px; border-radius:12px; border:1.5px dashed var(--brand); background:var(--accent); color:var(--brand-d); font-weight:700; font-size:.95rem; margin-top:4px}
+  .pager{display:flex; gap:8px; margin:18px 0 6px}
+  .pager > *{flex:1; font-size:.85rem}
+
+  /* checklist item */
+  .ci{background:#fff; border-radius:14px; padding:12px; margin:10px 0; box-shadow:0 1px 3px rgba(0,0,0,.07);
+    border-inline-start:6px solid var(--none); scroll-margin-top:calc(var(--hh) + 70px)}
+  .ci[data-st=ok]{border-inline-start-color:var(--ok)}
+  .ci[data-st=missing]{border-inline-start-color:var(--miss)}
+  .ci[data-st=check]{border-inline-start-color:var(--chk)}
+  .ci[data-st=na]{border-inline-start-color:var(--na)}
+  .ci .lbl{font-weight:700; margin-bottom:8px}
+  .ci .lbl small{display:block; font-weight:400; color:var(--muted); font-size:.8rem}
+  .stbtns{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+  .stbtns button{min-height:46px; border-radius:10px; border:1.5px solid var(--line); background:#f6f8fa; font-weight:600; font-size:.9rem; color:#444}
+  .stbtns button.on{color:#fff}
+  .stbtns button.on[data-s=ok]{background:var(--ok); border-color:var(--ok)}
+  .stbtns button.on[data-s=missing]{background:var(--miss); border-color:var(--miss)}
+  .stbtns button.on[data-s=check]{background:var(--chk); border-color:var(--chk)}
+  .stbtns button.on[data-s=na]{background:var(--na); border-color:var(--na)}
+  .acts{display:flex; gap:6px; margin-top:8px}
+  .acts button{flex:1; min-height:40px; border-radius:10px; border:1px solid var(--line); background:#fff; font-size:.86rem; font-weight:600; color:#555}
+  .acts button.has{background:var(--accent); border-color:var(--brand); color:var(--brand-d)}
+  .notewrap{margin-top:8px}
+  .pv{display:flex; align-items:flex-end; gap:8px; margin-top:8px}
+  .pv:empty{display:none}
+  .pv img{max-width:150px; max-height:120px; border-radius:10px; border:1px solid var(--line); object-fit:cover}
+  .pv .rm{border:none; background:#fbeaea; color:var(--miss); border-radius:8px; padding:6px 10px; font-weight:600; font-size:.82rem}
+  .flash{animation:flash 1.6s ease}
+  @keyframes flash{0%,40%{box-shadow:0 0 0 3px #ffcf33}100%{box-shadow:0 1px 3px rgba(0,0,0,.07)}}
+
+  /* row cards (tables on mobile) */
+  .rowcard{border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:10px; background:#fbfcfd}
+  .rowcard .rc-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; color:var(--brand-d)}
+  .rowcard .x{border:none; background:#fbeaea; color:var(--miss); border-radius:8px; width:36px; height:36px}
+
+  /* rooms */
+  .roomrow,.openrow{width:100%; display:flex; align-items:center; gap:10px; background:#fbfcfd; border:1px solid var(--line);
+    border-radius:12px; padding:11px 12px; margin-bottom:8px; text-align:right}
+  .ric{font-size:1.4rem}
+  .rn{flex:1; min-width:0}
+  .rn b{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .rn small{color:var(--muted); font-size:.78rem}
+  .rprog{font-size:.78rem; font-weight:700; background:var(--accent); color:var(--brand-d); border-radius:20px; padding:2px 9px}
+  .rprog.full{background:var(--ok); color:#fff}
+  .jump{position:sticky; top:var(--hh); z-index:20; display:flex; gap:6px; overflow-x:auto; padding:8px 12px; margin:-12px -12px 4px;
+    background:rgba(238,241,245,.96); backdrop-filter:blur(6px); scrollbar-width:none}
+  .jump::-webkit-scrollbar{display:none}
+  .jump button,.chips button{flex:none; border:1px solid var(--line); background:#fff; border-radius:20px; padding:6px 12px; font-size:.82rem; font-weight:600; white-space:nowrap}
+  .chips{display:flex; gap:6px; margin-bottom:10px}
+  .chips button.on{background:var(--brand); color:#fff; border-color:var(--brand)}
+
+  /* open list */
+  .grp{font-size:.8rem; font-weight:700; color:var(--muted); margin:14px 2px 6px}
+  .ot{flex:1; font-weight:600; font-size:.92rem}
+  .empty{text-align:center; color:var(--muted); padding:40px 10px}
+  .empty div{font-size:2.5rem}
+
+  /* status pill (shared with report) */
+  .st{font-weight:700; white-space:nowrap; padding:2px 9px; border-radius:20px; font-size:.74rem; color:#fff; display:inline-block; flex:none}
+  .st.ok{background:var(--ok)} .st.missing{background:var(--miss)} .st.na{background:var(--na)} .st.check{background:var(--chk)} .st.none{background:var(--none); color:#333}
+
+  /* toast & viewer */
+  #toast{position:fixed; bottom:calc(84px + var(--sa-b)); left:50%; transform:translateX(-50%) translateY(20px); opacity:0; pointer-events:none;
+    background:#1f2933; color:#fff; padding:10px 16px; border-radius:24px; font-size:.88rem; transition:.25s; z-index:60; max-width:90vw; text-align:center}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  #viewer{position:fixed; inset:0; z-index:70; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; padding:16px}
+  #viewer.show{display:flex}
+  #viewer img{max-width:100%; max-height:100%; border-radius:8px}
+
+  /* report */
+  .rep-actions{display:flex; gap:8px; margin-bottom:10px}
+  .rep-actions .btn{flex:1}
+  .rep{background:#fff; border-radius:14px; padding:14px; color:#000; font-size:.88rem}
+  .rep h1{text-align:center; font-size:1.3rem}
+  .rep .note{text-align:center; color:#444; margin-bottom:12px; font-size:.82rem}
+  .rep h2{font-size:1.05rem; border-bottom:2px solid var(--brand); color:var(--brand-d); padding-bottom:3px; margin-top:20px}
+  .rep h3{font-size:.95rem; margin:12px 0 4px}
+  .rep .tw{overflow-x:auto}
+  .rep table{border-collapse:collapse; width:100%; margin:6px 0; font-size:.8rem}
+  .rep th,.rep td{border:1px solid #888; padding:5px 6px; text-align:right; vertical-align:top}
+  .rep th{background:#e9eef5; white-space:nowrap}
+  .rep img{max-width:100%; border:1px solid #999; border-radius:4px; margin:6px 0 0 6px}
+  .open-box{background:#fff7e6; border:1px solid var(--chk); border-radius:8px; padding:8px}
+  @media print{
+    header#top,nav#bottom,.rep-actions,#toast{display:none!important}
+    body{background:#fff; padding:0}
+    main{max-width:100%; padding:0}
+    .rep{border-radius:0; padding:0; font-size:11pt}
+    .rep .tw{overflow:visible}
+    .rep h2{break-after:avoid}
+    .rep table,.rep img,tr{break-inside:avoid}
+    @page{size:A4; margin:16mm 12mm}
+  }
+  @media (min-width:560px){ .tiles{grid-template-columns:repeat(3,1fr)} }
+</style>
+</head>
+<body>
+
+<header id="top">
+  <button id="backBtn" class="icon-btn" aria-label="חזרה">→</button>
+  <div class="ttl"><b id="title">Site Survey</b><small id="subtitle"></small></div>
+  <div id="ring" class="ring" title="התקדמות"><span id="ringTxt">0%</span></div>
+</header>
+
+<main id="view"></main>
+
+<nav id="bottom">
+  <button data-nav="home">🏠<span>בית</span></button>
+  <button data-nav="open">⚠️<span>לטיפול</span><i class="nbadge" id="navBadge"></i></button>
+  <button data-nav="report">📄<span>דוח</span></button>
+  <button data-nav="more">⚙️<span>ייצוא ועוד</span></button>
+</nav>
+
+<div id="toast"></div>
+<div id="viewer"><img alt="תצוגת תמונה"></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+/* ===================== Configuration (identical item IDs to desktop version) ===================== */
+const ROLE_OPTS=["Cockpit","Motion Platform","Bridge","Visual Racks","Station","Rack","LCDs","Projectors","CLS","VPL","Server","Multimedia"];
+const SECTIONS=[
+  { id:"B", icon:"🗺️", title:"סקירת אתר כללית", items:[
+      {id:"B1", label:"מיקום / כתובת האתר אומת"},
+      {id:"B2", label:"מטרת המערכת / הסימולטור הובהרה מול הלקוח"},
+      {id:"B3", label:"קיימת מפת אתר / תרשים"},
+      {id:"B4", label:"קיימות תוכניות אדריכליות / AS-MADE"},
+      {id:"B5", label:"צולמו חזיתות הבניין והסביבה"} ]},
+  { id:"C", icon:"🏢", title:"מבנה וחדרים", items:[],
+    hint:"לחץ על חדר כדי לפתוח סקר מפורט: מידות, רובריקות בדיקה, ציוד, חשמל, רשת, סביבה ותמונות." },
+  { id:"D", icon:"⚡", title:"חשמל ומתח", items:[
+      {id:"D1", label:"זוהה לוח החשמל הראשי ומיקומו"},
+      {id:"D2", label:"נבדקו מתח / פאזות / תדר זמינים"},
+      {id:"D3", label:"נבדקה זמינות / קיבולת UPS"},
+      {id:"D4", label:"נבדקה זמינות גנרטור גיבוי"},
+      {id:"D5", label:"נבדק הספק פנוי זמין מהספק"},
+      {id:"D6", label:"נבדקה זמינות שקעים / הזנות בחדרים"} ],
+    hint:"נתוני שקעי החשמל נאספים פר-חדר בסקר המפורט (סעיף C)." },
+  { id:"E", icon:"🌐", title:"רשת ותקשורת", items:[
+      {id:"E1", label:"זוהו נקודות רשת קיימות"},
+      {id:"E2", label:"נבדקה הפרדת רשתות (שחור / אדום)"},
+      {id:"E3", label:"זוהה חדר תקשורת / שרתים"},
+      {id:"E4", label:"נבדקה תשתית סיבים / נחושת"} ],
+    hint:"נתוני שקעי הרשת נאספים פר-חדר בסקר המפורט (סעיף C)." },
+  { id:"F", icon:"❄️", title:"מיזוג ותנאי סביבה", items:[
+      {id:"F1", label:"קיימת מערכת מיזוג באתר"},
+      {id:"F2", label:"יכולת מיזוג 24/7"},
+      {id:"F3", label:"נמדדו טמפרטורה / לחות נוכחיים"},
+      {id:"F4", label:"בקרת מיזוג פר-חדר קיימת"} ],
+    hint:"נתוני טמפרטורה/לחות נאספים פר-חדר בסקר המפורט (סעיף C)." },
+  { id:"G", icon:"🌩️", title:"הארקה והגנת ברקים", items:[
+      {id:"G1", label:"קיימת מערכת הארקה"},
+      {id:"G2", label:"נמדד / דווח ערך התנגדות הארקה", hint:"רשום ערך [Ω] בהערה"},
+      {id:"G3", label:"קיים בור הארקה נגיש"},
+      {id:"G4", label:"קיימת הגנת ברקים לבניין"},
+      {id:"G5", label:"קיימת הגנת מתחי-יתר (TVSS)"} ]},
+  { id:"H", icon:"🧯", title:"בטיחות", items:[
+      {id:"H1", label:"מערכת גילוי אש / עשן"},
+      {id:"H2", label:"מטפים / מערכת כיבוי"},
+      {id:"H3", label:"יציאות חירום ותאורת חירום"},
+      {id:"H4", label:"מערכת כריזה (PA)"},
+      {id:"H5", label:"עמידה בתקנות בטיחות מקומיות (דווח)"} ]},
+  { id:"I", icon:"🚚", title:"גישה, הובלה ואחסון", items:[
+      {id:"I1", label:"נתיב גישה להכנסת ציוד (רוחב/גובה נמדדו)"},
+      {id:"I2", label:"קיימת רמפה / מעלית / אמצעי שינוע"},
+      {id:"I3", label:"זוהה שטח אחסון זמני מקורה ומוגן"},
+      {id:"I4", label:"נבדקו מגבלות שינוע / עגורן באתר"} ]},
+  { id:"J", icon:"💨", title:"אוויר דחוס (אם נדרש)", items:[
+      {id:"J1", label:"קיימת תשתית אוויר דחוס"},
+      {id:"J2", label:"נבדקו לחץ / ספיקה זמינים"} ]},
+  { id:"K", icon:"🧰", title:"ציוד BFE וכלים מיוחדים", items:[
+      {id:"K1", label:"זוהו כלים מיוחדים הנדרשים להתקנה"} ]}
+];
+const ROOM_RUBRICS=[
+  {id:"dims", label:"מידות החדר נמדדו (רוחב/אורך/גובה)"},
+  {id:"ceiling", label:"גובה תקרה חופשי מספיק", hint:"סימולטור / כיפה / מנוף עילי"},
+  {id:"doors", label:"מידות דלתות / פתחי גישה נבדקו"},
+  {id:"floorLoad", label:"נשיאות / עומס רצפה נבדקה"},
+  {id:"floorType", label:"סוג / מצב רצפה נבדק", hint:"מטע\"ד, יישור, ריצוף"}
+];
+const STATUS_OPTS=[
+  {v:"ok", label:"✅ תקין / קיים"}, {v:"missing", label:"❌ חסר"},
+  {v:"check", label:"🔎 לבירור"}, {v:"na", label:"⚪ לא רלוונטי"}
+];
+const STATUS_LABEL={ok:"קיים / תקין", missing:"חסר / לא קיים", na:"לא רלוונטי", check:"לבירור / מדידה", "":"טרם נבדק"};
+const BFE_COLS=[{key:"type",label:"Type / סוג"},{key:"pn",label:"P/N"},{key:"qty",label:"QTY / כמות",type:"number"},{key:"comment",label:"Comment / הערה"}];
+const EQ_COLS=[{key:"item",label:"ציוד"},{key:"weight",label:"משקל"},{key:"dims",label:"מידות"},{key:"qty",label:"כמות"}];
+const PS_COLS=[
+  {key:"socket",label:"Socket / שקע"},{key:"role",label:"Role / תפקיד",opts:ROLE_OPTS},
+  {key:"cee",label:"CEE"},{key:"qty",label:"Qty / כמות",type:"number"},
+  {key:"voltage",label:"Voltage (V)",type:"number"},{key:"phases",label:"Phases / פאזות"},
+  {key:"acFrom",label:"A/C from"},{key:"freq",label:"Freq (Hz)"},
+  {key:"ups",label:"UPS",opts:["YES","NO"]},{key:"acUnit",label:"A/C Unit"},
+  {key:"current",label:"Current (A)",type:"number"}
+];
+
+/* ===================== State & persistence (shared key with desktop) ===================== */
+const LS_KEY="siteSurveyChecklist_v1";
+const DEFAULTS={
+  meta:{project:"",site:"",customer:"",surveyor:"",date:"",participants:"",purpose:"",siteImage:""},
+  answers:{},
+  tables:{
+    roomsOp:[
+      {name:"חדר סימולטור",qty:"1",note:""},{name:"חדר מדריך (IOS)",qty:"1",note:""},
+      {name:"חדר שרתים",qty:"1",note:""},{name:"חדר חשמל ו-UPS",qty:"1",note:""},
+      {name:"חדר אחסון",qty:"1",note:""}
+    ],
+    roomsAdmin:[{name:"חדר מנהל האתר",qty:"1",note:""},{name:"שירותים",qty:"כנדרש",note:""}],
+    bfe:[{type:"",pn:"",qty:"",comment:""}]
+  }
+};
+function deepMerge(base,over){
+  for(const k in over){
+    if(over[k] && typeof over[k]==="object" && !Array.isArray(over[k]) && base[k] && typeof base[k]==="object" && !Array.isArray(base[k])) deepMerge(base[k],over[k]);
+    else base[k]=over[k];
+  }
+  return base;
+}
+function load(){
+  try{ const raw=localStorage.getItem(LS_KEY); if(raw) return deepMerge(structuredClone(DEFAULTS), JSON.parse(raw)); }
+  catch(e){ console.warn(e); }
+  return structuredClone(DEFAULTS);
+}
+let state=load();
+let saveTimer=null;
+function persist(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch(e){ toast("⚠ האחסון בדפדפן מלא — ייצא JSON או הסר תמונות", 5000); }
+}
+function save(){ clearTimeout(saveTimer); saveTimer=setTimeout(persist,250); updateRing(); }
+// Mobile browsers may kill a backgrounded tab without further events — flush immediately.
+document.addEventListener("visibilitychange",()=>{ if(document.hidden){ clearTimeout(saveTimer); persist(); } });
+window.addEventListener("pagehide",()=>{ clearTimeout(saveTimer); persist(); });
+
+/* ===================== DOM helpers ===================== */
+function h(tag,attrs={},...kids){
+  const e=document.createElement(tag);
+  for(const k in attrs){
+    const v=attrs[k];
+    if(v==null) continue;
+    if(k==="class") e.className=v;
+    else if(k.startsWith("on")) e.addEventListener(k.slice(2),v);
+    else e.setAttribute(k,v);
+  }
+  for(const kid of kids.flat()){ if(kid==null) continue; e.appendChild(typeof kid==="string"?document.createTextNode(kid):kid); }
+  return e;
+}
+function bound(obj,key,{type="text",ph="",opts=null,area=false,onchange=null}={}){
+  let inp;
+  if(opts){ inp=h("select"); inp.appendChild(h("option",{value:""},"—")); opts.forEach(o=>{ const op=h("option",{value:o},o); if(obj[key]===o) op.selected=true; inp.appendChild(op); }); }
+  else if(area){ inp=h("textarea",{placeholder:ph}); inp.value=obj[key]||""; }
+  else { inp=h("input",{type, placeholder:ph, inputmode:type==="number"?"decimal":null}); inp.value=obj[key]||""; }
+  const fn=()=>{ obj[key]=inp.value; save(); if(onchange) onchange(inp.value); };
+  inp.addEventListener("input",fn); inp.addEventListener("change",fn);
+  return inp;
+}
+function field(label,inp){ return h("div",{class:"field"}, h("label",{},label), inp); }
+function block(title,content,id){ return h("div",{class:"block",id}, h("h3",{},title), content); }
+function btn(text,onclick,cls=""){ return h("button",{class:"btn wide "+cls,type:"button",onclick},text); }
+function toast(msg,ms=2000){
+  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),ms);
+}
+function viewer(src){ const v=document.getElementById("viewer"); v.querySelector("img").src=src; v.classList.add("show"); }
+document.getElementById("viewer").addEventListener("click",e=>e.currentTarget.classList.remove("show"));
+
+/* ===================== Photos (downscaled to keep localStorage within quota) ===================== */
+function compressImage(file,max=1280,q=0.72){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file); const img=new Image();
+    img.onload=()=>{
+      const s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+      const c=document.createElement("canvas"); c.width=Math.round(img.naturalWidth*s); c.height=Math.round(img.naturalHeight*s);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+      res(c.toDataURL("image/jpeg",q));
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error("image")); };
+    img.src=url;
+  });
+}
+function photoCtl(obj,key){
+  const preview=h("div",{class:"pv"});
+  const camIn=h("input",{type:"file",accept:"image/*",capture:"environment",hidden:""});
+  const galIn=h("input",{type:"file",accept:"image/*",hidden:""});
+  const camBtn=h("button",{type:"button",onclick:()=>camIn.click()},"📷 צלם");
+  const galBtn=h("button",{type:"button",onclick:()=>galIn.click()},"🖼 גלריה");
+  function draw(){
+    preview.innerHTML=""; camBtn.classList.toggle("has",!!obj[key]);
+    if(!obj[key]) return;
+    const img=h("img",{alt:"תמונה"}); img.src=obj[key]; img.onclick=()=>viewer(obj[key]);
+    preview.append(img, h("button",{type:"button",class:"rm",onclick:()=>{ if(!confirm("להסיר את התמונה?")) return; obj[key]=""; draw(); save(); }},"🗑 הסר"));
+  }
+  async function onFile(e){
+    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    toast("מעבד תמונה…");
+    try{ obj[key]=await compressImage(f); draw(); save(); toast("התמונה נשמרה ✓"); }
+    catch(err){ toast("שגיאה בטעינת התמונה"); }
+  }
+  camIn.addEventListener("change",onFile); galIn.addEventListener("change",onFile);
+  draw();
+  return {buttons:[camBtn,galBtn,camIn,galIn], preview};
+}
+function photoBlock(obj,key){ const p=photoCtl(obj,key); return h("div",{}, h("div",{class:"acts"},...p.buttons), p.preview); }
+
+/* ===================== Checklist item card ===================== */
+function itemCard(item,store){
+  if(!store[item.id]) store[item.id]={status:"",note:"",photo:""};
+  const a=store[item.id];
+  const card=h("div",{class:"ci",id:"it_"+item.id}); card.dataset.st=a.status||"";
+  const grid=h("div",{class:"stbtns"}); const btns={};
+  STATUS_OPTS.forEach(s=>{
+    const b=h("button",{type:"button","data-s":s.v,onclick:()=>{
+      a.status=(a.status===s.v)?"":s.v;
+      for(const v in btns) btns[v].classList.toggle("on",a.status===v);
+      card.dataset.st=a.status;
+      if(navigator.vibrate) navigator.vibrate(10);
+      save();
+    }}, s.label);
+    if(a.status===s.v) b.classList.add("on");
+    btns[s.v]=b; grid.appendChild(b);
+  });
+  const note=bound(a,"note",{area:true,ph:"ממצא / הערה"}); note.rows=2;
+  const noteWrap=h("div",{class:"notewrap"},note); noteWrap.hidden=!a.note;
+  const noteBtn=h("button",{type:"button",class:a.note?"has":"",onclick:()=>{ noteWrap.hidden=!noteWrap.hidden; if(!noteWrap.hidden) note.focus(); }},"📝 הערה");
+  note.addEventListener("input",()=>noteBtn.classList.toggle("has",!!a.note));
+  const ph=photoCtl(a,"photo");
+  card.append(h("div",{class:"lbl"}, item.label, item.hint?h("small",{},item.hint):null), grid,
+    h("div",{class:"acts"}, noteBtn, ...ph.buttons), noteWrap, ph.preview);
+  return card;
+}
+
+/* ===================== Table rows as cards ===================== */
+function cardList(rows,cols,newRow,title){
+  const wrap=h("div");
+  function draw(){
+    wrap.innerHTML="";
+    rows.forEach((row,i)=>{
+      const g=h("div",{class:"g2"});
+      cols.forEach(c=>g.appendChild(field(c.label, c.opts?bound(row,c.key,{opts:c.opts}):bound(row,c.key,{type:c.type||"text"}))));
+      wrap.appendChild(h("div",{class:"rowcard"},
+        h("div",{class:"rc-h"}, h("b",{},`${title} ${i+1}`),
+          h("button",{type:"button",class:"x",title:"מחק",onclick:()=>{ if(!confirm("למחוק את השורה?")) return; rows.splice(i,1); draw(); save(); }},"🗑")),
+        g));
+    });
+    wrap.appendChild(h("button",{type:"button",class:"addbtn",onclick:()=>{ rows.push(newRow()); draw(); save(); }},"＋ הוסף "+title));
+  }
+  draw();
+  return wrap;
+}
+
+/* ===================== Rooms ===================== */
+function ensureRoomId(row){ if(!row.id) row.id="r"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); return row.id; }
+function ensureDetail(row){
+  const d=row.detail||(row.detail={});
+  ["location","w","l","hgt","doorW","doorH","layoutImg","notes"].forEach(k=>{ if(d[k]===undefined) d[k]=""; });
+  if(!Array.isArray(d.equipment)) d.equipment=[{item:"",weight:"",dims:"",qty:""}];
+  if(!Array.isArray(d.powerSockets)) d.powerSockets=[{socket:"",role:"",cee:"",qty:"",voltage:"",phases:"",acFrom:"",freq:"",ups:"",acUnit:"",current:""}];
+  if(!d.net) d.net={iafBlack:"",iafRed:"",eslBlack:"",eslRed:""};
+  if(!d.env) d.env={temp:"",humidity:""};
+  if(!d.checks) d.checks={};
+  return d;
+}
+function allRooms(){ return [...state.tables.roomsOp, ...state.tables.roomsAdmin]; }
+function findRoom(rid){
+  for(const list of [state.tables.roomsOp,state.tables.roomsAdmin]){ const r=list.find(x=>x.id===rid); if(r) return {row:r,list}; }
+  return null;
+}
+function roomCheck(r,id){ return r.detail&&r.detail.checks&&r.detail.checks[id]; }
+function roomDone(r){ return ROOM_RUBRICS.filter(rb=>{ const a=roomCheck(r,rb.id); return a&&a.status; }).length; }
+
+/* ===================== Stats ===================== */
+function secStat(sec){
+  let d=0,t=0,miss=0;
+  const tally=a=>{ t++; if(a&&a.status) d++; if(a&&a.status==="missing") miss++; };
+  if(sec.id==="C") allRooms().forEach(r=>ROOM_RUBRICS.forEach(rb=>tally(roomCheck(r,rb.id))));
+  sec.items.forEach(it=>tally(state.answers[it.id]));
+  return {d,t,miss};
+}
+function metaStat(){ const k=["project","site","customer","surveyor","date"]; return {d:k.filter(x=>state.meta[x]).length,t:k.length,miss:0}; }
+function totals(){ let d=0,t=0; SECTIONS.forEach(s=>{ const x=secStat(s); d+=x.d; t+=x.t; }); return {d,t,p:t?Math.round(d/t*100):0}; }
+function openList(){
+  const out=[];
+  SECTIONS.forEach(s=>s.items.forEach(it=>{
+    const st=(state.answers[it.id]||{}).status||"";
+    if(st!=="ok"&&st!=="na") out.push({st,text:it.label,where:`${s.id}. ${s.title}`,nav:{v:"sec",id:s.id,focus:"it_"+it.id}});
+  }));
+  allRooms().forEach(r=>ROOM_RUBRICS.forEach(rb=>{
+    const st=(roomCheck(r,rb.id)||{}).status||"";
+    if(st!=="ok"&&st!=="na") out.push({st,text:rb.label,where:`חדר: ${r.name||"(ללא שם)"}`,nav:{v:"room",rid:r.id,focus:"it_"+rb.id}});
+  }));
+  return out;
+}
+function updateRing(){
+  const t=totals();
+  document.getElementById("ring").style.setProperty("--p",t.p);
+  document.getElementById("ringTxt").textContent=t.p+"%";
+  const n=openList().filter(x=>x.st==="missing"||x.st==="check").length;
+  const b=document.getElementById("navBadge"); b.textContent=n; b.style.display=n?"flex":"none";
+}
+
+/* ===================== Routing ===================== */
+let route={v:"home"};
+function go(v,p={}){ route={...p,v}; history.pushState(route,""); render(); }
+window.addEventListener("popstate",e=>{ route=e.state||{v:"home"}; render(); });
+document.getElementById("backBtn").addEventListener("click",()=>{ if(route.v!=="home") history.back(); });
+document.querySelectorAll("#bottom button").forEach(b=>b.addEventListener("click",()=>{ if(route.v!==b.dataset.nav) go(b.dataset.nav); }));
+function setTitle(t,s){ document.getElementById("title").textContent=t; document.getElementById("subtitle").textContent=s||""; }
+function measureHeader(){ document.documentElement.style.setProperty("--hh",document.getElementById("top").offsetHeight+"px"); }
+window.addEventListener("resize",measureHeader);
+
+function render(){
+  const m=document.getElementById("view"); m.innerHTML="";
+  const R={home:rHome,meta:rMeta,sec:rSec,room:rRoom,open:rOpen,report:rReport,more:rMore}[route.v]||rHome;
+  R(m);
+  document.getElementById("backBtn").style.visibility=route.v==="home"?"hidden":"visible";
+  document.querySelectorAll("#bottom button").forEach(b=>b.classList.toggle("on",b.dataset.nav===route.v));
+  updateRing(); measureHeader();
+  const el=route.focus&&document.getElementById(route.focus);
+  if(el){ el.scrollIntoView({block:"center"}); el.classList.add("flash"); }
+  else window.scrollTo(0,0);
+}
+
+/* ===================== Views ===================== */
+function tile(letter,icon,title,st,onclick){
+  const pct=st.t?Math.round(st.d/st.t*100):0;
+  return h("button",{type:"button",class:"tile"+(st.t&&st.d===st.t?" done":""),onclick},
+    h("span",{class:"lt"},letter), h("span",{class:"ic"},icon), h("span",{class:"tt"},title),
+    h("span",{class:"cnt"}, st.t?`${st.d}/${st.t}`:"נתונים", st.miss?h("span",{class:"miss"},` · ❌ ${st.miss}`):null),
+    h("span",{class:"bar"}, h("i",{style:`width:${pct}%`})));
+}
+function rHome(m){
+  const mt=state.meta;
+  setTitle(mt.project||"Site Survey",[mt.site,mt.date].filter(Boolean).join(" · ")||"צ'קליסט שטח");
+  const c={ok:0,missing:0,check:0,na:0,none:0};
+  const add=a=>{ c[(a&&a.status)||"none"]++; };
+  SECTIONS.forEach(s=>s.items.forEach(it=>add(state.answers[it.id])));
+  allRooms().forEach(r=>ROOM_RUBRICS.forEach(rb=>add(roomCheck(r,rb.id))));
+  const stat=(cls,n,label,nav)=>h("button",{type:"button",class:"stat "+cls,onclick:nav?()=>go("open",nav):null}, h("b",{},String(n)), h("small",{},label));
+  m.append(
+    h("button",{type:"button",class:"hero",onclick:()=>go("meta")},
+      h("span",{class:"hero-ic"},"📋"),
+      h("div",{}, h("b",{},mt.project||"הזן פרטי סקר"),
+        h("small",{},[mt.customer,mt.site,mt.surveyor].filter(Boolean).join(" · ")||"פרויקט · אתר · לקוח · עורך · תאריך")),
+      h("span",{class:"chev"},"‹")),
+    h("div",{class:"stats"},
+      stat("ok",c.ok,"תקין"), stat("missing",c.missing,"חסר",{f:"open"}),
+      stat("check",c.check,"לבירור",{f:"open"}), stat("none",c.none,"טרם נבדק",{f:"none"})),
+    h("div",{class:"tiles"},
+      tile("A","🧾","פרטי הסקר",metaStat(),()=>go("meta")),
+      ...SECTIONS.map(s=>tile(s.id,s.icon,s.title,secStat(s),()=>go("sec",{id:s.id}))))
+  );
+}
+function rMeta(m){
+  setTitle("A. פרטי הסקר","פרטים כלליים");
+  const mt=state.meta;
+  m.appendChild(block("🧾 פרטי הסקר", h("div",{},
+    field("שם הפרויקט",bound(mt,"project")),
+    field("אתר / מיקום",bound(mt,"site")),
+    field("לקוח",bound(mt,"customer")),
+    h("div",{class:"g2"}, field("עורך הסקר",bound(mt,"surveyor")), field("תאריך",bound(mt,"date",{type:"date"}))),
+    field("משתתפים / אנשי קשר באתר",bound(mt,"participants",{ph:"שמות ותפקידים"})),
+    field("מטרת הסקר",bound(mt,"purpose",{area:true})))));
+  m.appendChild(h("div",{class:"pager"}, h("span"), h("button",{type:"button",class:"btn",onclick:()=>go("sec",{id:SECTIONS[0].id})},`${SECTIONS[0].id}. ${SECTIONS[0].title} ←`)));
+}
+function rSec(m){
+  const i=SECTIONS.findIndex(s=>s.id===route.id); const sec=SECTIONS[i];
+  if(!sec){ route={v:"home"}; return rHome(m); }
+  const st=secStat(sec);
+  setTitle(`${sec.icon} ${sec.id}. ${sec.title}`, st.t?`${st.d} מתוך ${st.t} נבדקו`:"");
+  if(sec.hint) m.appendChild(h("div",{class:"hint"},"💡 "+sec.hint));
+  sec.items.forEach(it=>m.appendChild(itemCard(it,state.answers)));
+  if(sec.id==="B") m.appendChild(block("📷 תמונה כללית של האתר",photoBlock(state.meta,"siteImage")));
+  if(sec.id==="C") m.append(roomsGroup("🏭 חדרים — חלק תפעולי",state.tables.roomsOp), roomsGroup("🗂 חדרים — חלק מנהלתי",state.tables.roomsAdmin));
+  if(sec.id==="K") m.appendChild(block("🧰 ציוד BFE ללקוח",cardList(state.tables.bfe,BFE_COLS,()=>({type:"",pn:"",qty:"",comment:""}),"פריט")));
+  const prev=SECTIONS[i-1], next=SECTIONS[i+1];
+  m.appendChild(h("div",{class:"pager"},
+    prev?h("button",{type:"button",class:"btn ghost",onclick:()=>go("sec",{id:prev.id})},`→ ${prev.id}. ${prev.title}`)
+        :h("button",{type:"button",class:"btn ghost",onclick:()=>go("meta")},"→ A. פרטי הסקר"),
+    next?h("button",{type:"button",class:"btn",onclick:()=>go("sec",{id:next.id})},`${next.id}. ${next.title} ←`)
+        :h("button",{type:"button",class:"btn",onclick:()=>go("report")},"📄 לדוח ←")));
+}
+function roomsGroup(title,rows){
+  const wrap=h("div",{class:"block"}, h("h3",{},title));
+  rows.forEach(r=>{
+    ensureRoomId(r);
+    const d=r.detail||{}, n=roomDone(r);
+    const dims=[d.w,d.l,d.hgt].some(Boolean)?`${d.w||"?"}×${d.l||"?"}×${d.hgt||"?"} מ'`:"";
+    wrap.appendChild(h("button",{type:"button",class:"roomrow",onclick:()=>go("room",{rid:r.id})},
+      h("span",{class:"ric"},"🚪"),
+      h("span",{class:"rn"}, h("b",{},r.name||"(חדר ללא שם)"),
+        h("small",{},[r.qty?`כמות: ${r.qty}`:"",dims].filter(Boolean).join(" · ")||"טרם נסקר")),
+      h("span",{class:"rprog"+(n===ROOM_RUBRICS.length?" full":"")},`${n}/${ROOM_RUBRICS.length}`),
+      h("span",{class:"chev"},"‹")));
+  });
+  wrap.appendChild(h("button",{type:"button",class:"addbtn",onclick:()=>{
+    const nr={name:"",qty:"1",note:""}; ensureRoomId(nr); rows.push(nr); save(); go("room",{rid:nr.id});
+  }},"＋ הוסף חדר"));
+  return wrap;
+}
+function rRoom(m){
+  const f=findRoom(route.rid);
+  if(!f){ route={v:"sec",id:"C"}; return rSec(m); }
+  const row=f.row, d=ensureDetail(row);
+  const titleFor=n=>setTitle("🚪 "+(n||"חדר ללא שם"),`סקר מפורט · ${roomDone(row)}/${ROOM_RUBRICS.length} רובריקות`);
+  titleFor(row.name);
+  const num=(o,k,l)=>field(l,bound(o,k,{type:"number"}));
+  const parts=[
+    ["gen","📍 כללי",()=>h("div",{},
+      h("div",{class:"g2"}, field("שם חדר",bound(row,"name",{onchange:titleFor})), field("כמות",bound(row,"qty"))),
+      field("מיקום החדר בבניין",bound(d,"location")))],
+    ["dim","📐 מידות (מ')",()=>h("div",{},
+      h("div",{class:"g3"}, num(d,"w","רוחב"), num(d,"l","אורך"), num(d,"hgt","גובה")),
+      h("div",{class:"g2"}, num(d,"doorW","רוחב דלת"), num(d,"doorH","גובה דלת")))],
+    ["chk","✔ רובריקות",()=>h("div",{},ROOM_RUBRICS.map(rb=>itemCard(rb,d.checks)))],
+    ["eq","📦 ציוד",()=>cardList(d.equipment,EQ_COLS,()=>({item:"",weight:"",dims:"",qty:""}),"ציוד")],
+    ["pw","⚡ חשמל",()=>cardList(d.powerSockets,PS_COLS,()=>({socket:"",role:"",cee:"",qty:"",voltage:"",phases:"",acFrom:"",freq:"",ups:"",acUnit:"",current:""}),"שקע")],
+    ["net","🌐 רשת",()=>h("div",{class:"g2"}, num(d.net,"iafBlack","IAF שחור"), num(d.net,"iafRed","IAF אדום"), num(d.net,"eslBlack","ESL שחור"), num(d.net,"eslRed","ESL אדום"))],
+    ["env","🌡 סביבה",()=>h("div",{class:"g2"}, field("טמפרטורה (נדרש/נמדד)",bound(d.env,"temp")), field("לחות",bound(d.env,"humidity")))],
+    ["img","📷 פריסה",()=>photoBlock(d,"layoutImg")],
+    ["nt","📝 הערות",()=>bound(d,"notes",{area:true,ph:"ממצאים לגבי החדר"})]
+  ];
+  m.appendChild(h("div",{class:"jump"}, parts.map(([id,t])=>h("button",{type:"button",onclick:()=>document.getElementById("blk_"+id).scrollIntoView({behavior:"smooth",block:"start"})},t))));
+  parts.forEach(([id,t,fn])=>m.appendChild(block(t,fn(),"blk_"+id)));
+  m.appendChild(btn("🗑 מחק חדר",()=>{
+    if(!confirm(`למחוק את החדר "${row.name||""}"? פעולה זו אינה הפיכה.`)) return;
+    f.list.splice(f.list.indexOf(row),1); save(); history.back();
+  },"danger"));
+}
+function rOpen(m){
+  const all=openList();
+  const open=all.filter(x=>x.st==="missing"||x.st==="check"), none=all.filter(x=>!x.st);
+  const f=route.f||"open";
+  setTitle("⚠️ פריטים לטיפול",`${open.length} פתוחים · ${none.length} טרם נבדקו`);
+  m.appendChild(h("div",{class:"chips"},
+    [["open",`❌🔎 פתוחים (${open.length})`],["none",`⏳ טרם נבדק (${none.length})`]].map(([k,t])=>
+      h("button",{type:"button",class:f===k?"on":"",onclick:()=>{ route.f=k; history.replaceState(route,""); render(); }},t))));
+  const list=f==="none"?none:open;
+  if(!list.length){ m.appendChild(h("div",{class:"empty"}, h("div",{},"🎉"), f==="none"?"כל הפריטים נבדקו":"אין פריטים פתוחים")); return; }
+  let last="";
+  list.forEach(x=>{
+    if(x.where!==last){ m.appendChild(h("div",{class:"grp"},x.where)); last=x.where; }
+    m.appendChild(h("button",{type:"button",class:"openrow",onclick:()=>go(x.nav.v,x.nav)},
+      h("span",{class:"st "+(x.st||"none")},STATUS_LABEL[x.st]), h("span",{class:"ot"},x.text), h("span",{class:"chev"},"‹")));
+  });
+}
+function rReport(m){
+  setTitle("📄 דוח ממצאי סקר","להדפסה / שמירה כ-PDF");
+  const rep=h("div",{class:"rep"}); rep.innerHTML=buildReport();
+  rep.querySelectorAll("img").forEach(img=>img.addEventListener("click",()=>viewer(img.src)));
+  m.append(h("div",{class:"rep-actions"},
+    h("button",{type:"button",class:"btn",onclick:()=>window.print()},"🖨 הדפסה / PDF"),
+    h("button",{type:"button",class:"btn ghost",onclick:shareJSON},"📲 שתף JSON")), rep);
+}
+function rMore(m){
+  setTitle("⚙️ ייצוא ועוד","שיתוף, גיבוי וניהול נתונים");
+  const kb=Math.round(new Blob([JSON.stringify(state)]).size/1024);
+  m.append(
+    block("📤 שיתוף וייצוא", h("div",{class:"stack"},
+      navigator.share?btn("📲 שתף קובץ JSON (מייל / Teams / וואטסאפ)",shareJSON):null,
+      btn("⬇ הורד קובץ JSON",exportJSON,"ghost"),
+      btn("📄 דוח להדפסה / PDF",()=>go("report"),"ghost"))),
+    block("📥 ייבוא", btn("⬆ טען קובץ JSON",()=>document.getElementById("importFile").click(),"ghost")),
+    block("💾 אחסון", h("div",{},
+      h("div",{class:"hint"},`נפח נתונים נוכחי: ${kb} KB. הנתונים נשמרים בדפדפן במכשיר זה בלבד (מגבלה טיפוסית כ-5MB; תמונות מוקטנות אוטומטית). מומלץ לייצא JSON בסוף כל יום סקר.`),
+      btn("🗑 נקה את כל הנתונים",clearAll,"danger"))),
+    block("ℹ️ אודות", h("div",{class:"hint"},"גרסת מובייל של כלי ה-Site Survey. מבנה הנתונים זהה לגרסת הדסקטופ (site-survey.html) — ניתן לייצא כאן ולייבא שם, ולהפך."))
+  );
+}
+
+/* ===================== Report ===================== */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function safeImg(src,max){
+  return /^data:image\/(png|jpe?g|gif|webp|bmp);base64,[A-Za-z0-9+/=]+$/.test(src||"")?`<img src="${src}" style="max-width:${max}px" alt="">`:"";
+}
+function pill(st){ return `<span class="st ${st||"none"}">${STATUS_LABEL[st||""]}</span>`; }
+function repTable(headers,rows){
+  let o=`<div class="tw"><table><thead><tr>`+headers.map(x=>`<th>${esc(x)}</th>`).join("")+`</tr></thead><tbody>`;
+  if(!rows.length) o+=`<tr><td colspan="${headers.length}" style="text-align:center;color:#999">— אין נתונים —</td></tr>`;
+  rows.forEach(r=>{ o+=`<tr>`+r.map(c=>`<td>${c}</td>`).join("")+`</tr>`; });
+  return o+`</tbody></table></div>`;
+}
+function buildReport(){
+  const mt=state.meta; let o="";
+  o+=`<h1>דוח ממצאי סקר מקדים (Site Survey)</h1>`;
+  o+=`<div class="note">מסמך זה מרכז את נתוני השטח שנאספו בסקר, כבסיס להכנת מסמך FRD. אין לראות בו מסמך דרישות סופי.</div>`;
+  o+=repTable(["שדה","ערך"],[
+    ["שם הפרויקט",esc(mt.project)||"—"],["אתר / מיקום",esc(mt.site)||"—"],["לקוח",esc(mt.customer)||"—"],
+    ["עורך הסקר",esc(mt.surveyor)||"—"],["תאריך",esc(mt.date)||"—"],["משתתפים",esc(mt.participants)||"—"],["מטרת הסקר",esc(mt.purpose)||"—"]
+  ]);
+  o+=safeImg(mt.siteImage,260);
+  SECTIONS.forEach(sec=>{
+    o+=`<h2>${sec.id}. ${esc(sec.title)}</h2>`;
+    if(sec.items.length) o+=repTable(["פריט","סטטוס","ממצא"], sec.items.map(it=>{
+      const a=state.answers[it.id]||{}; return [esc(it.label), pill(a.status), (esc(a.note)||"—")+safeImg(a.photo,160)];
+    }));
+    if(sec.id==="C"){
+      o+=`<h3>חדרים — תפעולי</h3>`+repTable(["#","שם חדר","כמות"], state.tables.roomsOp.map((r,i)=>[i+1,esc(r.name)||"—",esc(r.qty)||"—"]));
+      o+=`<h3>חדרים — מנהלתי</h3>`+repTable(["#","שם חדר","כמות"], state.tables.roomsAdmin.map((r,i)=>[i+1,esc(r.name)||"—",esc(r.qty)||"—"]));
+      allRooms().forEach(room=>{
+        const d=room.detail; if(!d) return;
+        const ps=(d.powerSockets||[]).filter(s=>s.socket||s.role||s.current||s.voltage||s.cee);
+        const net=d.net&&(d.net.iafBlack||d.net.iafRed||d.net.eslBlack||d.net.eslRed);
+        const env=d.env&&(d.env.temp||d.env.humidity);
+        const hasData=d.location||d.w||d.l||d.hgt||d.doorW||d.doorH||d.notes||d.layoutImg||ps.length||net||env
+          ||(d.equipment&&d.equipment.some(e=>e.item))||(d.checks&&Object.values(d.checks).some(c=>c&&c.status));
+        if(!hasData) return;
+        o+=`<h3>סקר מפורט — ${esc(room.name)||"חדר"}</h3>`;
+        o+=repTable(["מיקום","רוחב","אורך","גובה","רוחב דלת","גובה דלת"],[[esc(d.location)||"—",esc(d.w)||"—",esc(d.l)||"—",esc(d.hgt)||"—",esc(d.doorW)||"—",esc(d.doorH)||"—"]]);
+        o+=repTable(["בדיקה","סטטוס","ממצא"], ROOM_RUBRICS.map(rb=>{ const a=(d.checks&&d.checks[rb.id])||{}; return [esc(rb.label),pill(a.status),(esc(a.note)||"—")+safeImg(a.photo,150)]; }));
+        o+=repTable(["#","ציוד","משקל","מידות","כמות"], (d.equipment||[]).map((e,i)=>[i+1,esc(e.item)||"—",esc(e.weight)||"—",esc(e.dims)||"—",esc(e.qty)||"—"]));
+        if(ps.length) o+=`<p><b>שקעי חשמל:</b></p>`+repTable(["Socket","Role","CEE","Qty","V","Phases","A/C from","Freq","UPS","A/C Unit","Current(A)"],
+          ps.map(s=>[s.socket,s.role,s.cee,s.qty,s.voltage,s.phases,s.acFrom,s.freq,s.ups,s.acUnit,s.current].map(v=>esc(v)||"—")));
+        if(net) o+=`<p><b>שקעי רשת:</b></p>`+repTable(["IAF שחור","IAF אדום","ESL שחור","ESL אדום"],[[d.net.iafBlack,d.net.iafRed,d.net.eslBlack,d.net.eslRed].map(v=>esc(v)||"—")]);
+        if(env) o+=`<p><b>תנאי סביבה:</b></p>`+repTable(["טמפרטורה","לחות"],[[esc(d.env.temp)||"—",esc(d.env.humidity)||"—"]]);
+        if(d.notes) o+=`<p>${esc(d.notes)}</p>`;
+        o+=safeImg(d.layoutImg,260);
+      });
+    }
+    if(sec.id==="K") o+=repTable(["No.","Type","P/N","QTY","Comment"], state.tables.bfe.map((r,i)=>[i+1,esc(r.type)||"—",esc(r.pn)||"—",esc(r.qty)||"—",esc(r.comment)||"—"]));
+  });
+  const open=openList();
+  o+=`<h2>פריטים פתוחים / לטיפול</h2>`;
+  o+=open.length?`<div class="open-box">`+repTable(["#","מיקום","פריט","סטטוס"],open.map((x,i)=>[i+1,esc(x.where),esc(x.text),pill(x.st)]))+`</div>`
+                :`<p>אין פריטים פתוחים — כל הפריטים נבדקו.</p>`;
+  return o;
+}
+
+/* ===================== Import / Export / Clear ===================== */
+function fileName(){ return ((state.meta.project||"site-survey").replace(/[^\w\u0590-\u05FF\- ]/g,"").trim()||"site-survey")+"_survey.json"; }
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=h("a",{href:url,download:fileName()}); document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+async function shareJSON(){
+  const file=new File([JSON.stringify(state,null,2)],fileName(),{type:"application/json"});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:"Site Survey — "+(state.meta.project||"")}); }
+    catch(e){ if(e.name!=="AbortError") toast("השיתוף נכשל — מוריד קובץ"), exportJSON(); }
+  } else exportJSON();
+}
+document.getElementById("importFile").addEventListener("change",ev=>{
+  const f=ev.target.files[0]; ev.target.value=""; if(!f) return;
+  if(!confirm("הייבוא יחליף את הנתונים הקיימים במכשיר. להמשיך?")) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      state=deepMerge(structuredClone(DEFAULTS),JSON.parse(r.result));
+      allRooms().forEach(ensureRoomId); persist();
+      route={v:"home"}; history.replaceState(route,""); render(); toast("הנתונים נטענו ✓");
+    }catch(e){ alert("קובץ לא תקין: "+e.message); }
+  };
+  r.readAsText(f);
+});
+function clearAll(){
+  if(!confirm("לנקות את כל הנתונים? פעולה זו אינה הפיכה. מומלץ לייצא JSON לפני כן.")) return;
+  localStorage.removeItem(LS_KEY); state=structuredClone(DEFAULTS); allRooms().forEach(ensureRoomId);
+  route={v:"home"}; history.replaceState(route,""); render(); toast("הנתונים נוקו");
+}
+
+/* ===================== Init ===================== */
+allRooms().forEach(ensureRoomId);
+history.replaceState(route,"");
+render();
+</script>
+</body>
+</html>
